@@ -1,0 +1,841 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TCP — Therapy Coordination Portal</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --navy:#1e3a5f;--navy-mid:#2d5282;--navy-light:#ebf8ff;
+    --teal:#0694a2;--teal-light:#e6f6f8;--teal-dark:#047481;
+    --green:#057a55;--green-light:#f3faf7;
+    --amber:#92400e;--amber-light:#fffbeb;
+    --red:#9b1c1c;--red-light:#fdf2f2;
+    --slate:#64748b;--slate-light:#f8fafc;
+    --border:#e2e8f0;--border-mid:#cbd5e1;
+    --text:#1e293b;--text-mid:#475569;--text-light:#94a3b8;
+    --white:#ffffff;--bg:#f1f5f9;
+    --shadow-sm:0 1px 3px rgba(0,0,0,0.06);
+    --shadow:0 2px 8px rgba(0,0,0,0.07),0 1px 2px rgba(0,0,0,0.04);
+    --shadow-md:0 4px 16px rgba(0,0,0,0.1);
+    --r:8px;--rl:12px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Inter',-apple-system,sans-serif;background:var(--bg);color:var(--text);font-size:13.5px;line-height:1.5;-webkit-font-smoothing:antialiased}
+
+  /* SETUP */
+  .setup-overlay{position:fixed;inset:0;background:linear-gradient(135deg,var(--navy),var(--navy-mid));z-index:9999;display:flex;align-items:center;justify-content:center}
+  .setup-overlay.hidden{display:none}
+  .setup-card{background:white;border-radius:var(--rl);padding:40px 44px;width:480px;max-width:90vw;box-shadow:0 24px 64px rgba(0,0,0,0.25)}
+  .setup-eyebrow{font-size:11px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:var(--teal);margin-bottom:6px}
+  .setup-heading{font-size:22px;font-weight:700;color:var(--navy);margin-bottom:6px;letter-spacing:-0.3px}
+  .setup-sub{font-size:13px;color:var(--text-mid);margin-bottom:28px;line-height:1.6}
+  .f-label{display:block;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.6px;color:var(--text-mid);margin-bottom:5px}
+  .f-input{width:100%;padding:10px 13px;border:1.5px solid var(--border-mid);border-radius:var(--r);font-size:13px;font-family:'Courier New',monospace;color:var(--text);outline:none;background:white;transition:border .15s,box-shadow .15s;margin-bottom:6px}
+  .f-input:focus{border-color:var(--teal);box-shadow:0 0 0 3px rgba(6,148,162,0.12)}
+  .setup-hint{font-size:11.5px;color:var(--text-light);margin-bottom:22px;line-height:1.7}
+  .setup-hint a{color:var(--teal);text-decoration:none}
+  .setup-btn{width:100%;padding:11px;background:var(--navy);color:white;border:none;border-radius:var(--r);font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;transition:background .15s}
+  .setup-btn:hover{background:var(--navy-mid)}
+  .setup-error{background:var(--red-light);border:1px solid #fca5a5;border-radius:6px;padding:9px 13px;font-size:12px;color:var(--red);margin-bottom:14px;display:none}
+
+  /* LAYOUT */
+  .shell{display:flex;min-height:100vh}
+  .sidebar{width:210px;background:var(--navy);display:flex;flex-direction:column;flex-shrink:0;position:fixed;top:0;left:0;bottom:0;z-index:100}
+  .sidebar-logo{padding:20px 18px 16px;border-bottom:1px solid rgba(255,255,255,0.08)}
+  .logo-eyebrow{font-size:10px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,0.35);margin-bottom:3px}
+  .logo-name{font-size:14px;font-weight:700;color:white;letter-spacing:-0.2px;line-height:1.3}
+  .logo-name span{color:#90cdf4}
+  .nav{padding:8px 0;flex:1}
+  .nav-section{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:rgba(255,255,255,0.28);padding:12px 18px 4px}
+  .nav-item{display:flex;align-items:center;gap:9px;padding:8px 18px;cursor:pointer;color:rgba(255,255,255,0.58);font-size:13px;font-weight:400;border-left:2px solid transparent;transition:all .12s}
+  .nav-item:hover{color:rgba(255,255,255,0.88);background:rgba(255,255,255,0.04)}
+  .nav-item.active{color:white;background:rgba(255,255,255,0.08);border-left-color:#90cdf4;font-weight:500}
+  .nav-icon{font-size:13px;width:16px;text-align:center;opacity:0.65}
+  .sidebar-foot{padding:14px 18px;border-top:1px solid rgba(255,255,255,0.08)}
+  .conn-status{display:flex;align-items:center;gap:7px;font-size:11px;color:rgba(255,255,255,0.38);margin-bottom:6px}
+  .conn-dot{width:6px;height:6px;border-radius:50%;background:#68d391;flex-shrink:0;animation:blink 2.5s infinite}
+  @keyframes blink{0%,100%{opacity:1}50%{opacity:0.3}}
+  .reset-btn{font-size:11px;color:rgba(255,255,255,0.28);cursor:pointer;text-decoration:underline;background:none;border:none;padding:0;font-family:inherit}
+  .reset-btn:hover{color:rgba(255,255,255,0.6)}
+
+  .main{margin-left:210px;flex:1;display:flex;flex-direction:column}
+  .topbar{background:white;border-bottom:1px solid var(--border);padding:0 28px;height:52px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50;box-shadow:var(--shadow-sm)}
+  .page-title{font-size:15px;font-weight:600;color:var(--navy)}
+  .loading-row{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--teal)}
+  .spinner{width:14px;height:14px;border:2px solid rgba(6,148,162,0.2);border-top-color:var(--teal);border-radius:50%;animation:spin .65s linear infinite;display:none}
+  .spinner.on{display:block}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .content{padding:24px 28px;flex:1}
+  .screen{display:none}
+  .screen.active{display:block}
+
+  /* CARDS */
+  .card{background:white;border:1px solid var(--border);border-radius:var(--rl);box-shadow:var(--shadow);margin-bottom:18px;overflow:hidden}
+  .card-head{padding:13px 18px 12px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:var(--slate-light)}
+  .card-title{font-size:13px;font-weight:600;color:var(--navy)}
+  .card-body{padding:20px}
+  .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  .grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:18px}
+
+  /* STAT TILES */
+  .stat-tile{background:white;border:1px solid var(--border);border-radius:var(--rl);padding:20px 22px;box-shadow:var(--shadow)}
+  .stat-label{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.6px;color:var(--text-light);margin-bottom:8px}
+  .stat-val{font-size:38px;font-weight:700;color:var(--navy);line-height:1;letter-spacing:-1.5px}
+  .stat-sub{font-size:12px;color:var(--text-light);margin-top:4px}
+
+  /* FORMS */
+  .form-group{margin-bottom:14px}
+  .form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  label.lbl{display:block;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-mid);margin-bottom:5px}
+  input[type=text],input[type=email],input[type=password],select{width:100%;padding:8px 12px;border:1.5px solid var(--border-mid);border-radius:var(--r);font-size:13px;font-family:inherit;color:var(--text);background:white;outline:none;transition:border .12s,box-shadow .12s}
+  input:focus,select:focus{border-color:var(--teal);box-shadow:0 0 0 3px rgba(6,148,162,0.1)}
+
+  /* BUTTONS */
+  .btn{display:inline-flex;align-items:center;gap:5px;padding:8px 14px;border-radius:var(--r);font-size:12.5px;font-weight:500;cursor:pointer;border:none;font-family:inherit;transition:all .12s}
+  .btn-navy{background:var(--navy);color:white}.btn-navy:hover{background:var(--navy-mid)}
+  .btn-teal{background:var(--teal);color:white}.btn-teal:hover{background:var(--teal-dark)}
+  .btn-ghost{background:white;color:var(--text-mid);border:1px solid var(--border-mid)}.btn-ghost:hover{background:var(--slate-light)}
+  .btn-danger{background:var(--red-light);color:var(--red);border:1px solid #fca5a5}.btn-danger:hover{background:#fee2e2}
+  .btn-sm{padding:5px 10px;font-size:11.5px}
+  .btn-full{width:100%;justify-content:center}
+  .btn:disabled{opacity:0.4;cursor:not-allowed}
+
+  /* BADGES */
+  .badge{display:inline-flex;align-items:center;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:600}
+  .badge-green{background:var(--green-light);color:var(--green)}
+  .badge-amber{background:var(--amber-light);color:var(--amber)}
+  .badge-teal{background:var(--teal-light);color:var(--teal-dark)}
+  .badge-navy{background:var(--navy-light);color:var(--navy)}
+
+  /* TABLE */
+  .data-table{width:100%;border-collapse:collapse}
+  .data-table th{text-align:left;padding:9px 16px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-light);border-bottom:1px solid var(--border);background:var(--slate-light)}
+  .data-table td{padding:11px 16px;border-bottom:1px solid var(--border);font-size:13px;color:var(--text-mid);vertical-align:middle}
+  .data-table tr:last-child td{border-bottom:none}
+  .data-table tr:hover td{background:#fafbfc}
+  .data-table td strong{color:var(--text);font-weight:500}
+
+  /* TIMETABLE */
+  .tt-tabs{display:flex;gap:4px;background:white;padding:4px;border:1px solid var(--border);border-radius:var(--r);width:fit-content;margin-bottom:16px;box-shadow:var(--shadow-sm)}
+  .tt-tab{padding:6px 22px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;color:var(--text-light);border:none;background:none;transition:all .12s;font-family:inherit}
+  .tt-tab.active{background:var(--navy);color:white}
+  .tt-wrap{overflow-x:auto}
+  .tt-grid{display:grid;grid-template-columns:88px repeat(5,1fr);gap:4px;min-width:560px}
+  .tt-head{text-align:center;padding:7px 4px;font-size:10.5px;font-weight:600;color:var(--text-light);text-transform:uppercase;letter-spacing:0.5px}
+  .tt-period-label{display:flex;flex-direction:column;justify-content:center;padding:4px 8px}
+  .pname{font-size:11.5px;font-weight:600;color:var(--text-mid)}
+  .ptime{font-size:10px;color:var(--text-light);margin-top:1px}
+  .tt-cell{border-radius:var(--r);padding:7px 5px;min-height:64px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;cursor:pointer;transition:all .12s;border:1.5px solid transparent;position:relative}
+  .tt-cell.open{background:#f0fdf4;border-color:#bbf7d0}.tt-cell.open:hover{background:#dcfce7;border-color:#86efac}
+  .tt-cell.restricted{background:var(--amber-light);border-color:#fcd34d;cursor:default}
+  .tt-cell.blocked{background:var(--slate-light);border-color:var(--border);opacity:0.45;cursor:default}
+  .tt-cell.clash{background:var(--red-light);border-color:#fca5a5}.tt-cell.clash:hover{background:#fee2e2;border-color:#f87171}
+  .cell-label{font-size:10.5px;font-weight:600;color:var(--text-mid)}
+  .open .cell-label{color:var(--green)}.clash .cell-label{color:var(--red)}.restricted .cell-label{color:var(--amber)}.blocked .cell-label{color:var(--text-light)}
+  .cell-sub{font-size:9.5px;color:var(--text-light);margin-top:2px}
+  .cell-toggle{font-size:9.5px;font-weight:600;margin-top:5px;background:rgba(255,255,255,0.85);border:1px solid rgba(0,0,0,0.08);border-radius:4px;padding:2px 6px;cursor:pointer;color:var(--text-mid);opacity:0;transition:opacity .12s;font-family:inherit}
+  .tt-cell:hover .cell-toggle{opacity:1}
+
+  /* LEGEND */
+  .legend{display:flex;gap:18px;margin-bottom:14px;flex-wrap:wrap}
+  .legend-item{display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--text-mid)}
+  .legend-dot{width:10px;height:10px;border-radius:3px}
+
+  /* SETTINGS BAR */
+  .settings-bar{background:white;border:1px solid var(--border);border-radius:var(--r);padding:12px 16px;margin-bottom:16px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;box-shadow:var(--shadow-sm)}
+  .settings-item{display:flex;align-items:center;gap:8px;font-size:13px}
+  .settings-item .lbl{margin:0;font-size:11px;white-space:nowrap}
+  .settings-item select{width:auto;font-size:12.5px;padding:5px 10px}
+  .vdiv{width:1px;height:22px;background:var(--border)}
+
+  /* SUB TABS */
+  .sub-tabs{display:flex;gap:2px;margin-bottom:18px;background:white;border:1px solid var(--border);border-radius:var(--r);padding:3px;width:fit-content;box-shadow:var(--shadow-sm)}
+  .sub-tab{padding:6px 16px;border-radius:6px;font-size:12.5px;font-weight:500;cursor:pointer;color:var(--text-mid);background:none;border:none;font-family:inherit;transition:all .12s}
+  .sub-tab.active{background:var(--navy);color:white;font-weight:600}
+  .sub-tab:not(.active):hover{background:var(--slate-light)}
+  .sub-panel{display:none}.sub-panel.active{display:block}
+
+  /* PREVIEW BANNER */
+  .preview-banner{background:var(--amber-light);border:1px solid #fcd34d;border-radius:var(--r);padding:9px 14px;font-size:12px;color:var(--amber);margin-bottom:16px;font-weight:500}
+
+  /* THERAPIST CARD */
+  .th-outer{display:flex;justify-content:center;padding:8px 0 20px}
+  .th-card{background:white;border:1px solid var(--border);border-radius:var(--rl);width:100%;max-width:540px;box-shadow:var(--shadow-md);overflow:hidden}
+  .th-header{background:var(--navy);padding:24px 28px}
+  .th-school{font-size:10px;text-transform:uppercase;letter-spacing:2px;color:rgba(255,255,255,0.45);margin-bottom:6px;font-weight:500}
+  .th-title{font-size:20px;font-weight:700;color:white;letter-spacing:-0.3px;margin-bottom:4px}
+  .th-subtitle{font-size:12.5px;color:rgba(255,255,255,0.5)}
+  .th-body{padding:24px 28px}
+  .student-banner{background:var(--teal-light);border:1px solid #a7d7da;border-radius:var(--r);padding:12px 16px;margin-bottom:20px}
+  .sb-label{font-size:10px;text-transform:uppercase;letter-spacing:0.8px;font-weight:600;color:var(--teal-dark);margin-bottom:3px}
+  .sb-name{font-size:14px;font-weight:600;color:var(--navy)}
+  .week-divider{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.6px;color:var(--text-light);margin:16px 0 8px;display:flex;align-items:center;gap:8px}
+  .week-divider::after{content:'';flex:1;height:1px;background:var(--border)}
+  .slot-option{border:1.5px solid var(--border);border-radius:var(--r);padding:11px 15px;margin-bottom:6px;cursor:pointer;transition:all .12s;display:flex;align-items:center;gap:12px;background:white}
+  .slot-option:hover{border-color:var(--teal);background:var(--teal-light)}
+  .slot-option.selected{border-color:var(--teal);background:var(--teal-light);box-shadow:0 0 0 3px rgba(6,148,162,0.12)}
+  .slot-option input[type=radio]{accent-color:var(--teal);width:15px;height:15px;flex-shrink:0}
+  .slot-day{font-weight:600;font-size:13px;color:var(--text)}
+  .slot-detail{font-size:11.5px;color:var(--text-mid);margin-top:2px}
+  .confirm-btn{width:100%;padding:12px;background:var(--teal);color:white;border:none;border-radius:var(--r);font-size:13.5px;font-weight:600;cursor:pointer;margin-top:18px;font-family:inherit;transition:background .12s}
+  .confirm-btn:hover{background:var(--teal-dark)}
+  .confirm-btn:disabled{background:var(--border-mid);color:var(--text-light);cursor:not-allowed}
+  .contact-note{font-size:11.5px;color:var(--text-light);text-align:center;margin-top:14px;line-height:1.6}
+
+  /* SUCCESS */
+  .success-state{text-align:center;padding:32px 20px}
+  .success-icon{width:54px;height:54px;background:var(--green-light);border:1px solid #a7f3d0;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:22px;margin:0 auto 14px}
+  .success-title{font-size:18px;font-weight:700;color:var(--navy);margin-bottom:8px;letter-spacing:-0.2px}
+  .success-msg{font-size:13px;color:var(--text-mid);line-height:1.7}
+
+  /* BOOKING TILE */
+  .booking-tile{background:var(--green-light);border:1px solid #a7f3d0;border-radius:var(--r);padding:14px 18px;margin-bottom:10px}
+  .bt-label{font-size:10px;text-transform:uppercase;letter-spacing:0.8px;color:var(--green);font-weight:700;margin-bottom:8px}
+  .bt-row{display:flex;gap:8px;align-items:center;font-size:13px;margin-bottom:3px}
+  .bt-key{color:var(--text-light);width:72px;flex-shrink:0;font-size:12px}
+  .bt-val{color:var(--text);font-weight:500}
+
+  /* EMPTY & TOAST */
+  .empty{text-align:center;padding:32px 20px;color:var(--text-light);font-size:13px;line-height:1.7}
+  .toast{position:fixed;bottom:22px;right:22px;background:var(--navy);color:white;padding:11px 17px;border-radius:var(--r);font-size:13px;font-weight:500;z-index:9999;opacity:0;transform:translateY(8px);transition:all .2s;box-shadow:var(--shadow-md);display:flex;align-items:center;gap:8px}
+  .toast.show{opacity:1;transform:translateY(0)}
+  .toast.success{background:#065f46}
+  .toast.error{background:#7f1d1d}
+</style>
+</head>
+<body>
+
+<div class="setup-overlay" id="setupOverlay">
+  <div class="setup-card">
+    <div class="setup-eyebrow">Therapy Coordination Portal</div>
+    <div class="setup-heading">Connect to Airtable</div>
+    <div class="setup-sub">Enter your Personal Access Token to connect to the TCP Development Database.</div>
+    <div class="setup-error" id="setupError"></div>
+    <label class="f-label">Personal Access Token</label>
+    <input class="f-input" id="tokenInput" type="password" placeholder="patXXXXXXXXXXXXXXXX">
+    <div class="setup-hint">
+      Get your token at <a href="https://airtable.com/create/tokens" target="_blank">airtable.com/create/tokens</a><br>
+      Required scopes: <strong>data.records:read</strong> and <strong>data.records:write</strong>
+    </div>
+    <button class="setup-btn" onclick="connectAirtable()">Connect →</button>
+  </div>
+</div>
+
+<div class="shell">
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-eyebrow">MGHS</div>
+      <div class="logo-name">Therapy<br><span>Coordination</span></div>
+    </div>
+    <nav class="nav">
+      <div class="nav-section">Overview</div>
+      <div class="nav-item active" onclick="go('dashboard')"><span class="nav-icon">◈</span> Dashboard</div>
+      <div class="nav-section">Scheduling</div>
+      <div class="nav-item" onclick="go('accounts')"><span class="nav-icon">⊕</span> Accounts</div>
+      <div class="nav-item" onclick="go('timetable')"><span class="nav-icon">▦</span> Timetable</div>
+      <div class="nav-section">Preview</div>
+      <div class="nav-item" onclick="go('therapist')"><span class="nav-icon">↗</span> Therapist View</div>
+    </nav>
+    <div class="sidebar-foot">
+      <div class="conn-status"><div class="conn-dot"></div><span>Airtable live</span></div>
+      <button class="reset-btn" onclick="resetToken()">Change token</button>
+    </div>
+  </aside>
+
+  <div class="main">
+    <div class="topbar">
+      <div class="page-title" id="pageTitle">Dashboard</div>
+      <div class="loading-row">
+        <div class="spinner" id="spinner"></div>
+        <span id="loadingText"></span>
+      </div>
+    </div>
+
+    <div class="content">
+
+      <!-- DASHBOARD -->
+      <div class="screen active" id="screen-dashboard">
+        <div class="grid-3" style="margin-bottom:18px">
+          <div class="stat-tile"><div class="stat-label">Students</div><div class="stat-val" id="dash-students">—</div><div class="stat-sub">in database</div></div>
+          <div class="stat-tile"><div class="stat-label">Therapists</div><div class="stat-val" id="dash-therapists">—</div><div class="stat-sub">in database</div></div>
+          <div class="stat-tile"><div class="stat-label">Confirmed Bookings</div><div class="stat-val" id="dash-bookings">—</div><div class="stat-sub">this term</div></div>
+        </div>
+        <div class="card">
+          <div class="card-head"><div class="card-title">Confirmed Bookings</div><button class="btn btn-ghost btn-sm" onclick="loadDashboard()">↻ Refresh</button></div>
+          <div class="card-body" id="dash-bookings-list"><div class="empty">Loading…</div></div>
+        </div>
+        <div class="card">
+          <div class="card-head"><div class="card-title">Linked Pairs</div></div>
+          <div style="padding:0">
+            <table class="data-table">
+              <thead><tr><th>Student</th><th>Therapist</th><th>Frequency</th><th>Status</th></tr></thead>
+              <tbody id="dash-pairs-body"><tr><td colspan="4" class="empty">Loading…</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ACCOUNTS -->
+      <div class="screen" id="screen-accounts">
+        <div class="sub-tabs">
+          <button class="sub-tab active" onclick="switchSub('create',this)">Create Accounts</button>
+          <button class="sub-tab" onclick="switchSub('link',this)">Link & Configure</button>
+          <button class="sub-tab" onclick="switchSub('list',this)">All Accounts</button>
+        </div>
+        <div class="sub-panel active" id="panel-create">
+          <div class="grid-2">
+            <div class="card">
+              <div class="card-head"><div class="card-title">New Student Account</div></div>
+              <div class="card-body">
+                <div class="form-group"><label class="lbl">Student Name / Alias</label><input id="ns-name" type="text" placeholder="e.g. Harry Potter"></div>
+                <div class="form-row">
+                  <div class="form-group"><label class="lbl">Year Group</label><select id="ns-year"><option>Year 7</option><option>Year 8</option><option>Year 9</option><option>Year 10</option><option>Year 11</option><option>Year 12</option><option>Support Unit</option></select></div>
+                  <div class="form-group"><label class="lbl">Room</label><input id="ns-room" type="text" placeholder="e.g. Rm 14"></div>
+                </div>
+                <br><button class="btn btn-navy btn-full" onclick="createStudent()">Create Student Account</button>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-head"><div class="card-title">New Therapist Account</div></div>
+              <div class="card-body">
+                <div class="form-group"><label class="lbl">Therapist Name</label><input id="nt-name" type="text" placeholder="e.g. Sheldon Cooper"></div>
+                <div class="form-group"><label class="lbl">Email</label><input id="nt-email" type="email" placeholder="therapist@example.com"></div>
+                <div class="form-row">
+                  <div class="form-group"><label class="lbl">Discipline</label><select id="nt-disc"><option>Occupational Therapy</option><option>Speech Pathology</option><option>Psychology</option><option>Physiotherapy</option><option>Behaviour Support</option><option>Other</option></select></div>
+                  <div class="form-group"><label class="lbl">Organisation</label><input id="nt-org" type="text" placeholder="Practice name"></div>
+                </div>
+                <br><button class="btn btn-navy btn-full" onclick="createTherapist()">Create Therapist Account</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="sub-panel" id="panel-link">
+          <div class="card">
+            <div class="card-head"><div class="card-title">Link Student to Therapist</div></div>
+            <div class="card-body">
+              <div class="grid-2">
+                <div class="form-group"><label class="lbl">Student</label><select id="lk-student"><option value="">— select student —</option></select></div>
+                <div class="form-group"><label class="lbl">Therapist</label><select id="lk-therapist"><option value="">— select therapist —</option></select></div>
+              </div>
+              <div class="grid-2" style="margin-top:4px">
+                <div class="form-group"><label class="lbl">Session Frequency</label><select id="lk-freq"><option>Weekly</option><option>Fortnightly</option><option>Monthly</option></select></div>
+                <div class="form-group"><label class="lbl">Number of Terms</label><select id="lk-terms"><option value="1">1 term</option><option value="2">2 terms</option><option value="3">3 terms</option><option value="4">4 terms</option></select></div>
+              </div>
+              <br><button class="btn btn-teal" onclick="createPair()">Link This Pair</button>
+            </div>
+          </div>
+        </div>
+        <div class="sub-panel" id="panel-list">
+          <div class="card">
+            <div class="card-head"><div class="card-title">All Accounts</div><button class="btn btn-ghost btn-sm" onclick="loadAccountsList()">↻ Refresh</button></div>
+            <div style="padding:0">
+              <table class="data-table">
+                <thead><tr><th>Name</th><th>Type</th><th>Detail</th></tr></thead>
+                <tbody id="acc-list-body"><tr><td colspan="3" class="empty">Loading…</td></tr></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TIMETABLE -->
+      <div class="screen" id="screen-timetable">
+        <div class="settings-bar">
+          <div class="settings-item">
+            <label class="lbl">Student clashes for</label>
+            <select id="tt-pair-sel" onchange="renderTimetable()"><option value="">— select student / pair —</option></select>
+          </div>
+          <div class="vdiv"></div>
+          <div class="settings-item" style="font-size:12px;color:var(--text-light)">Click any open slot to mark as a class clash</div>
+          <div style="margin-left:auto"><button class="btn btn-teal btn-sm" id="saveClashBtn" onclick="saveClashes()" disabled>Save Clashes to Airtable</button></div>
+        </div>
+        <div class="legend">
+          <div class="legend-item"><div class="legend-dot" style="background:#dcfce7;border:1.5px solid #86efac"></div>Open</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#fdf2f2;border:1.5px solid #fca5a5"></div>Student class clash</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#fffbeb;border:1.5px solid #fcd34d"></div>Restricted (HT approval)</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#f8fafc;border:1.5px solid #e2e8f0;opacity:0.6"></div>Blocked</div>
+        </div>
+        <div class="tt-tabs">
+          <button class="tt-tab active" onclick="switchWeek('A',this)">Week A</button>
+          <button class="tt-tab" onclick="switchWeek('B',this)">Week B</button>
+        </div>
+        <div class="card"><div class="card-body"><div class="tt-wrap"><div id="tt-container"><div class="empty">Select a student above to configure timetable clashes.</div></div></div></div></div>
+      </div>
+
+      <!-- THERAPIST VIEW -->
+      <div class="screen" id="screen-therapist">
+        <div class="preview-banner">👁 Preview mode — this simulates what the therapist sees when they open their booking link.</div>
+        <div class="settings-bar">
+          <div class="settings-item">
+            <label class="lbl">Preview booking for</label>
+            <select id="th-pair-sel" onchange="renderTherapistView()"><option value="">— select a linked pair —</option></select>
+          </div>
+        </div>
+        <div id="th-view-wrap"><div class="empty">Select a linked pair above to preview the therapist's booking view.</div></div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const BASE='appoah3ehg4uINtE4';
+const TBL={students:'tbluDzWXOJUhoKb3N',therapists:'tblLj9rpFVBI9TJHE',pairs:'tblBx055sgbaBC0mB',bookings:'tblmneUOEhM24tb0n',slots:'tblHjFr4PhFNTRzDo'};
+const F={
+  s:{name:'fldh7mUTqUwWmvS5U',year:'fld5mCO4l26zHnFNp',room:'fldtiunenOqCA3fy9',active:'fldHqIGrQaWhvbVBn'},
+  t:{name:'fldxLCQwNcgQKdRQG',email:'fldavW3doYYnJqb9e',disc:'fld4GW0WSGYnDlqCC',org:'fldvvwuXe9MhUwUrd',token:'fldPbumLXS5zK6FCH',active:'fldPdlRjEPwO3sadO'},
+  p:{name:'fldS8UOabnhCq7yWa',studentId:'fld9i4kdKCIaoHwO9',therapistId:'fldpvV2J0M2jN6x6K',freq:'fldPrQqbeytS1Ujzv',terms:'fld5yYAVy8nvCq8ny',status:'fldIj1fgXRJWtz0DF',clashes:'fldlS3AlnPXjCOxLZ'},
+  b:{name:'fldgQyPQeU1t8XzEA',studentId:'fldxPERZz6IHDpVKy',therapistId:'fldGKjGlQhlPy9jtm',week:'fldi75inWwzySGFGc',day:'fld9y6ktZ35W7lF8l',period:'fldncwGayh2V2iy8v',time:'fldICcj5z1b3U1689',status:'fldaOUeu1irDYFEcn'},
+  sl:{name:'fldNqgDGjiO3mqlwt',week:'fldG4eKSQlWrUgdtW',day:'fld6PhP1xA8xDuovu',period:'fldqopjU6uWUEj6GV',time:'fldfGo1j0YDkqknRg',status:'fld6QtF9taWczAIMU',capacity:'fldOvZR2QV45iOp72',blockReason:'fldPgJziVqVK17Iqr'}
+};
+const DAYS=['Monday','Tuesday','Wednesday','Thursday','Friday'];
+const PERIODS=['P1','P2','P3','P4','P5'];
+const PNAMES={P1:'Period 1',P2:'Period 2',P3:'Period 3',P4:'Period 4',P5:'Period 5'};
+
+let TOKEN=sessionStorage.getItem('tcp_token')||'';
+let students=[],therapists=[],pairs=[],slots={A:{},B:{}},localClashes={},currentWeek='A';
+
+// ── AIRTABLE CORE ──
+async function fetchAll(tableId){
+  let records=[],offset='';
+  do{
+    let url=`https://api.airtable.com/v0/${BASE}/${tableId}?pageSize=100`;
+    if(offset)url+=`&offset=${encodeURIComponent(offset)}`;
+    const res=await fetch(url,{headers:{'Authorization':`Bearer ${TOKEN}`}});
+    if(!res.ok){const e=await res.json().catch(()=>({}));throw new Error(e?.error?.message||`HTTP ${res.status}`);}
+    const data=await res.json();
+    records=records.concat(data.records||[]);
+    offset=data.offset||'';
+  }while(offset);
+  return records;
+}
+
+// KEY FIX: read field value by field ID from raw Airtable record
+function fv(rec,fieldId){
+  if(!rec?.fields)return null;
+  const v=rec.fields[fieldId];
+  return v!==undefined?v:null;
+}
+
+async function atWrite(method,tableId,body,recordId=''){
+  const url=`https://api.airtable.com/v0/${BASE}/${tableId}${recordId?'/'+recordId:''}`;
+  const res=await fetch(url,{method,headers:{'Authorization':`Bearer ${TOKEN}`,'Content-Type':'application/json'},body:JSON.stringify(body)});
+  if(!res.ok){const e=await res.json().catch(()=>({}));throw new Error(e?.error?.message||`HTTP ${res.status}`);}
+  return res.json();
+}
+
+async function atDelete(tableId,recordId){
+  const res=await fetch(`https://api.airtable.com/v0/${BASE}/${tableId}/${recordId}`,{method:'DELETE',headers:{'Authorization':`Bearer ${TOKEN}`}});
+  if(!res.ok)throw new Error(`Delete failed HTTP ${res.status}`);
+  return res.json();
+}
+
+// ── SETUP ──
+async function connectAirtable(){
+  const t=document.getElementById('tokenInput').value.trim();
+  if(!t){showSetupErr('Please enter your token.');return;}
+  TOKEN=t;setLoading('Connecting…');
+  try{
+    const res=await fetch(`https://api.airtable.com/v0/${BASE}/${TBL.students}?pageSize=1`,{headers:{'Authorization':`Bearer ${TOKEN}`}});
+    if(!res.ok)throw new Error('Rejected');
+    sessionStorage.setItem('tcp_token',TOKEN);
+    document.getElementById('setupOverlay').classList.add('hidden');
+    await initApp();
+  }catch{showSetupErr('Could not connect. Check your token has read/write access to this base.');TOKEN='';}
+  finally{setLoading('');}
+}
+function showSetupErr(msg){const el=document.getElementById('setupError');el.textContent=msg;el.style.display='block';}
+function resetToken(){sessionStorage.removeItem('tcp_token');TOKEN='';document.getElementById('setupOverlay').classList.remove('hidden');document.getElementById('tokenInput').value='';document.getElementById('setupError').style.display='none';}
+
+// ── INIT ──
+async function initApp(){
+  setLoading('Loading data…');
+  try{
+    await Promise.all([loadStudents(),loadTherapists(),loadSlots()]);
+    await loadPairs();
+    populateDropdowns();
+    await loadDashboard();
+    toast('Connected — data loaded','success');
+  }catch(e){toast('Load failed: '+e.message,'error');console.error(e);}
+  finally{setLoading('');}
+}
+
+async function loadStudents(){
+  const recs=await fetchAll(TBL.students);
+  students=recs.map(r=>({id:r.id,name:fv(r,F.s.name)||'(no name)',year:fv(r,F.s.year)||'',room:fv(r,F.s.room)||''}));
+}
+
+async function loadTherapists(){
+  const recs=await fetchAll(TBL.therapists);
+  therapists=recs.map(r=>({id:r.id,name:fv(r,F.t.name)||'(no name)',disc:fv(r,F.t.disc)||'',org:fv(r,F.t.org)||'',email:fv(r,F.t.email)||''}));
+}
+
+async function loadSlots(){
+  const recs=await fetchAll(TBL.slots);
+  slots={A:{},B:{}};
+  recs.forEach(r=>{
+    const w=fv(r,F.sl.week),d=fv(r,F.sl.day),p=fv(r,F.sl.period);
+    if(w&&d&&p){
+      if(!slots[w])slots[w]={};
+      slots[w][`${d}_${p}`]={id:r.id,status:fv(r,F.sl.status)||'Open',time:fv(r,F.sl.time)||'',capacity:fv(r,F.sl.capacity)||2,blockReason:fv(r,F.sl.blockReason)||''};
+    }
+  });
+}
+
+async function loadPairs(){
+  const recs=await fetchAll(TBL.pairs);
+  pairs=recs.map(r=>{
+    let clashes=[];
+    const raw=fv(r,F.p.clashes);
+    if(raw){try{clashes=JSON.parse(raw);}catch{clashes=[];}}
+    return{id:r.id,name:fv(r,F.p.name)||'',studentId:fv(r,F.p.studentId)||'',therapistId:fv(r,F.p.therapistId)||'',freq:fv(r,F.p.freq)||'',terms:fv(r,F.p.terms)||0,status:fv(r,F.p.status)||'',clashes};
+  });
+}
+
+// ── DASHBOARD ──
+async function loadDashboard(){
+  setLoading('Refreshing…');
+  try{
+    await Promise.all([loadStudents(),loadTherapists(),loadPairs()]);
+    const bRecs=await fetchAll(TBL.bookings);
+    document.getElementById('dash-students').textContent=students.length;
+    document.getElementById('dash-therapists').textContent=therapists.length;
+    document.getElementById('dash-bookings').textContent=bRecs.length;
+
+    const pBody=document.getElementById('dash-pairs-body');
+    if(!pairs.length){pBody.innerHTML='<tr><td colspan="4" class="empty">No linked pairs yet.</td></tr>';}
+    else{
+      pBody.innerHTML=pairs.map(p=>{
+        const s=students.find(x=>x.id===p.studentId);
+        const t=therapists.find(x=>x.id===p.therapistId);
+        const booked=bRecs.find(b=>fv(b,F.b.studentId)===p.studentId&&fv(b,F.b.therapistId)===p.therapistId);
+        return`<tr>
+          <td><strong>${s?.name||'?'}</strong><br><span style="font-size:11px;color:var(--text-light)">${s?.year||''} · ${s?.room||''}</span></td>
+          <td>${t?.name||'?'}<br><span style="font-size:11px;color:var(--text-light)">${t?.disc||''}</span></td>
+          <td>${p.freq||'—'}</td>
+          <td>${booked?'<span class="badge badge-green">Booked</span>':'<span class="badge badge-amber">Pending</span>'}</td>
+        </tr>`;
+      }).join('');
+    }
+
+    const bList=document.getElementById('dash-bookings-list');
+    if(!bRecs.length){bList.innerHTML='<div class="empty">No confirmed bookings yet.<br>Link accounts, configure timetable clashes, then use Therapist View to make a booking.</div>';}
+    else{
+      bList.innerHTML=bRecs.map(b=>{
+        const s=students.find(x=>x.id===fv(b,F.b.studentId));
+        const t=therapists.find(x=>x.id===fv(b,F.b.therapistId));
+        return`<div class="booking-tile">
+          <div class="bt-label">✓ Confirmed Booking</div>
+          <div class="bt-row"><span class="bt-key">Therapist</span><span class="bt-val">${t?.name||'?'}</span></div>
+          <div class="bt-row"><span class="bt-key">Student</span><span class="bt-val">${s?.name||'?'}</span></div>
+          <div class="bt-row"><span class="bt-key">Slot</span><span class="bt-val">Week ${fv(b,F.b.week)} · ${fv(b,F.b.day)} · ${fv(b,F.b.period)} · ${fv(b,F.b.time)}</span></div>
+        </div>`;
+      }).join('');
+    }
+  }catch(e){toast('Refresh failed: '+e.message,'error');}
+  finally{setLoading('');}
+}
+
+// ── ACCOUNTS ──
+async function createStudent(){
+  const name=document.getElementById('ns-name').value.trim();
+  const year=document.getElementById('ns-year').value;
+  const room=document.getElementById('ns-room').value.trim();
+  if(!name)return toast('Please enter a name.','error');
+  setLoading('Creating…');
+  try{
+    await atWrite('POST',TBL.students,{records:[{fields:{[F.s.name]:name,[F.s.year]:year,[F.s.room]:room,[F.s.active]:true}}]});
+    await loadStudents();populateDropdowns();
+    document.getElementById('ns-name').value='';document.getElementById('ns-room').value='';
+    toast(`Student "${name}" created`,'success');
+  }catch(e){toast('Failed: '+e.message,'error');}
+  finally{setLoading('');}
+}
+
+async function createTherapist(){
+  const name=document.getElementById('nt-name').value.trim();
+  const email=document.getElementById('nt-email').value.trim();
+  const disc=document.getElementById('nt-disc').value;
+  const org=document.getElementById('nt-org').value.trim();
+  if(!name)return toast('Please enter a name.','error');
+  const token='tok_'+name.toLowerCase().replace(/\s+/g,'').slice(0,8)+Math.random().toString(36).slice(2,6);
+  setLoading('Creating…');
+  try{
+    await atWrite('POST',TBL.therapists,{records:[{fields:{[F.t.name]:name,[F.t.email]:email,[F.t.disc]:disc,[F.t.org]:org,[F.t.token]:token,[F.t.active]:true}}]});
+    await loadTherapists();populateDropdowns();
+    document.getElementById('nt-name').value='';document.getElementById('nt-email').value='';document.getElementById('nt-org').value='';
+    toast(`Therapist "${name}" created`,'success');
+  }catch(e){toast('Failed: '+e.message,'error');}
+  finally{setLoading('');}
+}
+
+async function createPair(){
+  const sId=document.getElementById('lk-student').value;
+  const tId=document.getElementById('lk-therapist').value;
+  const freq=document.getElementById('lk-freq').value;
+  const terms=parseInt(document.getElementById('lk-terms').value);
+  if(!sId||!tId)return toast('Select both a student and a therapist.','error');
+  const s=students.find(x=>x.id===sId);
+  const t=therapists.find(x=>x.id===tId);
+  const pairName=`${t?.name||'?'} → ${s?.name||'?'}`;
+  setLoading('Linking…');
+  try{
+    await atWrite('POST',TBL.pairs,{records:[{fields:{[F.p.name]:pairName,[F.p.studentId]:sId,[F.p.therapistId]:tId,[F.p.freq]:freq,[F.p.terms]:terms,[F.p.status]:'Pending Booking',[F.p.clashes]:'[]'}}]});
+    await loadPairs();populateDropdowns();
+    toast(`Linked: ${pairName}`,'success');
+  }catch(e){toast('Failed: '+e.message,'error');}
+  finally{setLoading('');}
+}
+
+async function loadAccountsList(){
+  const body=document.getElementById('acc-list-body');
+  body.innerHTML='<tr><td colspan="3" class="empty">Loading…</td></tr>';
+  try{
+    await Promise.all([loadStudents(),loadTherapists()]);
+    const all=[
+      ...students.map(s=>({name:s.name,type:'Student',detail:`${s.year} · ${s.room}`,badge:'badge-navy'})),
+      ...therapists.map(t=>({name:t.name,type:'Therapist',detail:t.disc,badge:'badge-teal'}))
+    ];
+    if(!all.length){body.innerHTML='<tr><td colspan="3" class="empty">No accounts yet.</td></tr>';return;}
+    body.innerHTML=all.map(a=>`<tr><td><strong>${a.name}</strong></td><td><span class="badge ${a.badge}">${a.type}</span></td><td>${a.detail}</td></tr>`).join('');
+  }catch(e){body.innerHTML=`<tr><td colspan="3" class="empty">Load failed: ${e.message}</td></tr>`;}
+}
+
+// ── TIMETABLE ──
+function switchWeek(week,el){
+  currentWeek=week;
+  document.querySelectorAll('.tt-tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  renderTimetable();
+}
+
+function renderTimetable(){
+  const pairId=document.getElementById('tt-pair-sel').value;
+  const container=document.getElementById('tt-container');
+  if(!pairId){container.innerHTML='<div class="empty">Select a student above to configure timetable clashes.</div>';document.getElementById('saveClashBtn').disabled=true;return;}
+  const pair=pairs.find(p=>p.id===pairId);
+  if(!pair)return;
+  localClashes={};(pair.clashes||[]).forEach(k=>localClashes[k]=true);
+  document.getElementById('saveClashBtn').disabled=false;
+  const w=currentWeek;
+  let html='<div class="tt-grid"><div></div>';
+  DAYS.forEach(d=>{html+=`<div class="tt-head">${d}</div>`;});
+  PERIODS.forEach(p=>{
+    const slotTime=slots[w]?.[`Monday_${p}`]?.time||'';
+    html+=`<div class="tt-period-label"><div class="pname">${PNAMES[p]}</div><div class="ptime">${slotTime}</div></div>`;
+    DAYS.forEach(d=>{
+      const key=`${d}_${p}`,wKey=`${w}_${key}`;
+      const slot=slots[w]?.[key];
+      const isClash=!!localClashes[wKey];
+      if(!slot||slot.status==='Blocked'){
+        html+=`<div class="tt-cell blocked"><div class="cell-label">${slot?.blockReason||'Blocked'}</div></div>`;
+      }else if(slot.status==='Restricted'){
+        html+=`<div class="tt-cell restricted"><div class="cell-label">Restricted</div><div class="cell-sub">HT approval</div></div>`;
+      }else if(isClash){
+        html+=`<div class="tt-cell clash" onclick="toggleClash('${wKey}')"><div class="cell-label">Class clash</div><div class="cell-sub">${d} ${p}</div><button class="cell-toggle">Remove clash</button></div>`;
+      }else{
+        html+=`<div class="tt-cell open" onclick="toggleClash('${wKey}')"><div class="cell-label">${d} ${p}</div><div class="cell-sub">${slot.time}</div><button class="cell-toggle">Add clash</button></div>`;
+      }
+    });
+  });
+  html+='</div>';
+  container.innerHTML=html;
+}
+
+function toggleClash(wKey){
+  if(localClashes[wKey])delete localClashes[wKey];
+  else localClashes[wKey]=true;
+  renderTimetable();
+}
+
+async function saveClashes(){
+  const pairId=document.getElementById('tt-pair-sel').value;
+  if(!pairId)return;
+  const clashArray=Object.keys(localClashes);
+  setLoading('Saving clashes…');
+  try{
+    await atWrite('PATCH',TBL.pairs,{records:[{id:pairId,fields:{[F.p.clashes]:JSON.stringify(clashArray)}}]});
+    const pair=pairs.find(p=>p.id===pairId);
+    if(pair)pair.clashes=clashArray;
+    toast('Clashes saved ✓','success');
+  }catch(e){toast('Save failed: '+e.message,'error');}
+  finally{setLoading('');}
+}
+
+// ── THERAPIST VIEW ──
+async function renderTherapistView(){
+  const val=document.getElementById('th-pair-sel').value;
+  const wrap=document.getElementById('th-view-wrap');
+  if(!val){wrap.innerHTML='<div class="empty">Select a linked pair above to preview the therapist\'s booking view.</div>';return;}
+  const pair=pairs.find(p=>p.id===val);
+  if(!pair)return;
+  const student=students.find(s=>s.id===pair.studentId);
+  const therapist=therapists.find(t=>t.id===pair.therapistId);
+  if(!student||!therapist){wrap.innerHTML='<div class="empty">Could not find student or therapist for this pair.</div>';return;}
+  setLoading('Loading…');
+  try{
+    const allBookings=await fetchAll(TBL.bookings);
+    const existing=allBookings.find(b=>fv(b,F.b.studentId)===pair.studentId&&fv(b,F.b.therapistId)===pair.therapistId);
+    if(existing){
+      wrap.innerHTML=`<div class="th-outer"><div class="th-card">
+        <div class="th-header"><div class="th-school">Maitland Grossmann High School</div><div class="th-title">Session Booked ✓</div></div>
+        <div class="th-body">
+          <div class="booking-tile">
+            <div class="bt-label">✓ Confirmed Session</div>
+            <div class="bt-row"><span class="bt-key">Therapist</span><span class="bt-val">${therapist.name}</span></div>
+            <div class="bt-row"><span class="bt-key">Student</span><span class="bt-val">${student.name}</span></div>
+            <div class="bt-row"><span class="bt-key">Week</span><span class="bt-val">Week ${fv(existing,F.b.week)}</span></div>
+            <div class="bt-row"><span class="bt-key">Day</span><span class="bt-val">${fv(existing,F.b.day)}</span></div>
+            <div class="bt-row"><span class="bt-key">Period</span><span class="bt-val">${fv(existing,F.b.period)} · ${fv(existing,F.b.time)}</span></div>
+          </div>
+          <button class="btn btn-danger btn-sm" onclick="cancelBooking('${existing.id}','${pair.id}')">Cancel this booking</button>
+        </div>
+      </div></div>`;
+      return;
+    }
+    const clashSet=new Set(pair.clashes||[]);
+    const available=[];
+    ['A','B'].forEach(week=>{
+      DAYS.forEach(d=>{
+        PERIODS.forEach(p=>{
+          const key=`${d}_${p}`,wKey=`${week}_${key}`;
+          const slot=slots[week]?.[key];
+          if(slot&&slot.status==='Open'&&!clashSet.has(wKey)){
+            available.push({week,day:d,period:p,time:slot.time,wKey});
+          }
+        });
+      });
+    });
+    if(!available.length){
+      wrap.innerHTML=`<div class="th-outer"><div class="th-card">
+        <div class="th-header"><div class="th-school">Maitland Grossmann High School</div><div class="th-title">No Available Slots</div></div>
+        <div class="th-body"><div style="text-align:center;padding:20px;color:var(--text-mid);font-size:13px;line-height:1.7">All periods are either blocked or marked as class clashes.<br><br>Contact the coordinator to discuss alternatives.</div></div>
+      </div></div>`;
+      return;
+    }
+    const weekA=available.filter(s=>s.week==='A');
+    const weekB=available.filter(s=>s.week==='B');
+    const renderSlots=arr=>arr.map(s=>`
+      <label class="slot-option" onclick="this.querySelector('input').checked=true;pickSlot(this)">
+        <input type="radio" name="bSlot" value="${s.wKey}" data-week="${s.week}" data-day="${s.day}" data-period="${s.period}" data-time="${s.time}">
+        <div><div class="slot-day">Week ${s.week} · ${s.day} · ${PNAMES[s.period]}</div><div class="slot-detail">${s.time}</div></div>
+      </label>`).join('');
+    wrap.innerHTML=`<div class="th-outer"><div class="th-card">
+      <div class="th-header"><div class="th-school">Maitland Grossmann High School</div><div class="th-title">Book Your Session</div><div class="th-subtitle">Select the time that works best for you.</div></div>
+      <div class="th-body" id="thBodyInner">
+        <div class="student-banner"><div class="sb-label">Booking sessions for</div><div class="sb-name">${student.name} · ${student.year} · ${therapist.disc}</div></div>
+        <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:4px">Choose your session time</div>
+        <div style="font-size:12px;color:var(--text-mid);margin-bottom:14px">Only times available for this student are shown. Select one and confirm.</div>
+        ${weekA.length?`<div class="week-divider">Week A</div>${renderSlots(weekA)}`:''}
+        ${weekB.length?`<div class="week-divider">Week B</div>${renderSlots(weekB)}`:''}
+        <button class="confirm-btn" id="confirmBtn" disabled onclick="confirmBooking('${pair.id}','${pair.studentId}','${pair.therapistId}')">Select a time to continue</button>
+        <div class="contact-note">If none of these times work, contact the Therapy Coordinator directly.</div>
+      </div>
+    </div></div>`;
+  }catch(e){toast('Load failed: '+e.message,'error');wrap.innerHTML=`<div class="empty">Could not load booking view: ${e.message}</div>`;}
+  finally{setLoading('');}
+}
+
+function pickSlot(el){
+  document.querySelectorAll('.slot-option').forEach(s=>s.classList.remove('selected'));
+  el.classList.add('selected');
+  const btn=document.getElementById('confirmBtn');
+  if(!btn)return;
+  const r=el.querySelector('input');
+  btn.disabled=false;
+  btn.textContent=`Confirm — Week ${r.dataset.week} · ${r.dataset.day} · ${r.dataset.period}`;
+}
+
+async function confirmBooking(pairId,studentId,therapistId){
+  const selected=document.querySelector('input[name="bSlot"]:checked');
+  if(!selected)return;
+  const s=students.find(x=>x.id===studentId);
+  const t=therapists.find(x=>x.id===therapistId);
+  const bName=`${t?.name||'?'} → ${s?.name||'?'} · Wk${selected.dataset.week} ${selected.dataset.day} ${selected.dataset.period}`;
+  setLoading('Confirming…');
+  try{
+    await atWrite('POST',TBL.bookings,{records:[{fields:{[F.b.name]:bName,[F.b.studentId]:studentId,[F.b.therapistId]:therapistId,[F.b.week]:selected.dataset.week,[F.b.day]:selected.dataset.day,[F.b.period]:selected.dataset.period,[F.b.time]:selected.dataset.time,[F.b.status]:'Confirmed'}}]});
+    await atWrite('PATCH',TBL.pairs,{records:[{id:pairId,fields:{[F.p.status]:'Booked'}}]});
+    await loadPairs();
+    const inner=document.getElementById('thBodyInner');
+    if(inner){inner.innerHTML=`<div class="success-state"><div class="success-icon">✓</div><div class="success-title">Session Confirmed!</div><div class="success-msg">Your booking has been saved.<br><br><strong>Week ${selected.dataset.week} · ${selected.dataset.day} · ${PNAMES[selected.dataset.period]}</strong><br>${selected.dataset.time}<br><br>The coordinator will be in touch to confirm the details.</div></div>`;}
+    toast('Booking confirmed and saved ✓','success');
+  }catch(e){toast('Failed: '+e.message,'error');}
+  finally{setLoading('');}
+}
+
+async function cancelBooking(bookingId,pairId){
+  if(!confirm('Cancel this booking?'))return;
+  setLoading('Cancelling…');
+  try{
+    await atDelete(TBL.bookings,bookingId);
+    await atWrite('PATCH',TBL.pairs,{records:[{id:pairId,fields:{[F.p.status]:'Pending Booking'}}]});
+    await loadPairs();toast('Booking cancelled','success');renderTherapistView();
+  }catch(e){toast('Failed: '+e.message,'error');}
+  finally{setLoading('');}
+}
+
+// ── DROPDOWNS ──
+function populateDropdowns(){
+  const sOpts=students.map(s=>`<option value="${s.id}">${s.name} (${s.year})</option>`).join('');
+  document.getElementById('lk-student').innerHTML='<option value="">— select student —</option>'+sOpts;
+  const tOpts=therapists.map(t=>`<option value="${t.id}">${t.name} — ${t.disc}</option>`).join('');
+  document.getElementById('lk-therapist').innerHTML='<option value="">— select therapist —</option>'+tOpts;
+  const pairOpts=pairs.map(p=>{
+    const s=students.find(x=>x.id===p.studentId);
+    const t=therapists.find(x=>x.id===p.therapistId);
+    return`<option value="${p.id}">${s?.name||'?'} (via ${t?.name||'?'})</option>`;
+  }).join('');
+  document.getElementById('tt-pair-sel').innerHTML='<option value="">— select student / pair —</option>'+pairOpts;
+  const thPairOpts=pairs.map(p=>{
+    const s=students.find(x=>x.id===p.studentId);
+    const t=therapists.find(x=>x.id===p.therapistId);
+    return`<option value="${p.id}">${t?.name||'?'} → ${s?.name||'?'}</option>`;
+  }).join('');
+  document.getElementById('th-pair-sel').innerHTML='<option value="">— select a linked pair —</option>'+thPairOpts;
+}
+
+// ── NAVIGATION ──
+const TITLES={dashboard:'Dashboard',accounts:'Accounts',timetable:'Timetable Setup',therapist:'Therapist View'};
+function go(screen){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById('screen-'+screen).classList.add('active');
+  document.getElementById('pageTitle').textContent=TITLES[screen]||screen;
+  document.querySelectorAll('.nav-item').forEach(n=>{if(n.getAttribute('onclick')?.includes(`'${screen}'`))n.classList.add('active');});
+  if(screen==='dashboard')loadDashboard();
+  if(screen==='timetable'){populateDropdowns();renderTimetable();}
+  if(screen==='therapist')populateDropdowns();
+  if(screen==='accounts'&&document.getElementById('panel-list').classList.contains('active'))loadAccountsList();
+}
+
+function switchSub(name,el){
+  document.querySelectorAll('.sub-tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.sub-panel').forEach(p=>p.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('panel-'+name).classList.add('active');
+  if(name==='list')loadAccountsList();
+  if(name==='link')populateDropdowns();
+}
+
+// ── UTILS ──
+function setLoading(msg){
+  const s=document.getElementById('spinner'),t=document.getElementById('loadingText');
+  if(msg){s.classList.add('on');t.textContent=msg;}else{s.classList.remove('on');t.textContent='';}
+}
+let toastTimer;
+function toast(msg,type='success'){
+  const el=document.getElementById('toast');
+  el.textContent=msg;el.className=`toast ${type} show`;
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>el.classList.remove('show'),3200);
+}
+
+if(TOKEN){document.getElementById('setupOverlay').classList.add('hidden');initApp();}
+</script>
+</body>
+</html>
